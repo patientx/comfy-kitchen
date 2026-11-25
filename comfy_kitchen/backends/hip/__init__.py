@@ -1006,7 +1006,14 @@ def int8_linear(
     # Unlike CUDA, the residual is not folded into the epilogue: the per-element
     # residual reads there cost more than a separate addcmul at the output widths
     # pre-norm blocks apply it to.
-    return _apply_residual(out.reshape(*orig_shape[:-1], n), residual, residual_scale)
+    out = _apply_residual(out.reshape(*orig_shape[:-1], n), residual, residual_scale)
+    # print(f"[int8_linear out] out={out.dtype} x={x.dtype} out_dtype={out_dtype} residual={None if residual is None else residual.dtype}")
+    if x.dtype != out.dtype:
+        out = out.to(x.dtype)
+    # safer alternative if there is a problem with other models try this    
+    # if x.dtype == torch.float32 and out.dtype == torch.float32:
+        # out = out.to(torch.bfloat16)
+    return out
 
 
 def int8_linear_tiled_weight(x, weight, weight_scale, bias=None, out_dtype=torch.bfloat16, **kwargs):
@@ -1681,11 +1688,17 @@ def w4a8_int8_linear(
             input_act_eps=input_act_eps,
         )
 
-    return _w4a8_int8_linear_chunked(
+    out = _w4a8_int8_linear_chunked(
         x, qdata, s_rel, s_channel, codebook, bias, group_size, convrot_groupsize, out_dtype,
         input_act, act_weight, input_act_eps,
     )
-
+    # print(f"[w4a8 out] out={out.dtype} x={x.dtype} out_dtype={out_dtype}")
+    if x.dtype != out.dtype:
+        out = out.to(x.dtype)
+    # safer alternative if there is a problem with other models try this    
+    # if x.dtype == torch.float32 and out.dtype == torch.float32:
+        # out = out.to(torch.bfloat16)
+    return out
 
 # ---------------------------------------------------------------------------
 # ConvRot W4A4 (v_wmma_i32_16x16x32_iu4)
